@@ -1,0 +1,71 @@
+#!/usr/bin/env bash -e
+log(){ echo "`date '+%Y%m%d_%H%M%S'` $@"; }
+error(){ log ERROR "$@"; exit 1; }
+
+case `uname -n` in 
+xfbdev*) 
+  dir=xfbdev1
+  site=XFBDEV1
+  key=X1O6X52G7152DJVHSKYSA7FCRBJ4W3AGVDSDX7
+  EXTERNINTERFACE=146.249.250.171
+  INTERNINTERFACE=10.126.123.57;;
+xfbprep*) 
+  dir=xfbprep1
+  site=XFBPREP1
+  key=WLOPLISXUQ1ICCHIDP25M2GJAR8Y6BS0W1HPE
+  EXTERNINTERFACE=146.249.250.140
+  INTERNINTERFACE=10.126.123.67;;
+xfbprod*) 
+  dir=xfbprod
+  site=XFBPROD1
+  key=VRQT9FD2NN2F88XFPTKCQK16W4O3AYEDS2XT5
+  key2=TEUJIOIA2YN7TR21MJ27I4ZX51KM3PED8NGR
+  EXTERNINTERFACE=146.249.250.139
+  INTERNINTERFACE=10.126.115.86;;
+esac
+GATEWAYINTERFACE=127.0.0.1
+
+silent_dir=template_silentfiles
+ts=/$dir/produits/InstallerKit/SynchronyInstallerKit_614/`date '+%Y%m%d_%H%M%S'`
+
+mkdir $ts || error "mkdir KO"
+
+for f in $silent_dir/*; do
+  sed "s/KEY1/$key/; 
+s/KEY2/$key2/; 
+s/XFBDEV1/$site/; 
+s/xfbdev1/$dir/; 
+s/EXTERNINTERFACE/$EXTERNINTERFACE/g; 
+s/INTERNINTERFACE/$INTERNINTERFACE/g; 
+s/GATEWAYINTERFACE/$GATEWAYINTERFACE/g" $f > $ts/`basename $f` ||error "sed KO"
+done
+
+./setupUNIX.sh install instmode silent silentfile $ts/Install_Synchrony_Installer_V4.4.0.properties automated true
+
+runtime=/$dir/produits/gateway6140/run_time
+etc=$runtime/etc
+. $etc/profile 
+
+cp $ts/dconfsave.ini $ts/pelsetup.ini $ts/pelsetup.def $etc || error cp
+cd $etc
+./setup_server.sh migrate || error "./setup_server.sh migrate KO"
+
+test -d /$dir/source/data614 || mkdir /$dir/source/data614
+mv $runtime/data/* /$dir/source/data614
+rm -r $runtime/data
+ln -s /$dir/source/data614 $runtime/data
+
+test -d /$dir/source/vfd614 || mkdir /$dir/source/vfd614
+mv $runtime/vfd/* /$dir/source/vfd614
+rm -r $runtime/vfd
+ln -s /$dir/source/vfd614 $runtime/vfd
+
+test -d /$dir/log/arc614 || mkdir /$dir/log/arc614
+mv $runtime/arc /$dir/log/arc614
+rm -r $runtime/arc $runtime/tmp
+ln -s /$dir/log/arc614 $runtime/arc
+
+test -d  /$dir/log/tmp614 || mkdir /$dir/log/tmp614
+ln -s /$dir/log/tmp614 $runtime/tmp
+
+#gatestart || error gatestart ko

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+. ~/.profile
+
+ls /var/tmp/export_*.dat 2>&1 >/dev/null && echo "Error /var/tmp/export_*.dat present" && exit 1
+
+./expimp_objects export
+
+case `uname -n` in
+xfbdev*|xfbprep*|xfbprod*) :;;
+zebulon|titan|xfbdmz*)
+  echo "FROM_EXTERIEUR_SKYTOLL
+FROM_EXT_FCC_A641
+FROM_EXT_FCC_CZCLT
+RERUN_CANCELED_TRANS" | while read d; do
+    pelbase export_decisionrule -n $d
+  done > /var/tmp/export_pelbase_decisionrule.dat;;
+esac
+
+cd /var/tmp
+chmod a+rwx /var/tmp/export_*.dat
+tar cvf migration_export.tar export_*.dat
+
+echo Find all stuff into /var/tmp/migration_export.tar
+
+rm export_*.dat

@@ -1,0 +1,86 @@
+#!/usr/bin/bash
+set -e
+set -x
+
+case `uname -n` in
+xfbdev*) dir=/xfbdev1;;
+xfbprep*) dir=/xfbprep1;;
+xfbprod*) dir=/xfbprod;;
+esac
+
+gateway=$dir/produits/gateway
+data=$dir/source/data
+vfd=$dir/source/vfd
+arc=$dir/log/arc
+tmp=$dir/log/tmp
+
+run_time614=${gateway}6140/run_time
+run_time611=${gateway}6114/run_time
+
+use(){
+ PATH=/usr/bin:/usr/local/bin
+ unset LD_LIBRARY_PATH
+ case $1 in
+  614) . $run_time614/etc/profile;;
+  611) . $run_time611/etc/profile;;
+ esac
+}
+
+
+enable_gateway(){
+  echo Enable $1
+  for i in $data $vfd $arc $tmp; do
+    test -d $i || mv $i$1 $i
+    rm $gateway$2/run_time/`basename $i`
+    ln -s $i $gateway$2/run_time/`basename $i`
+  done
+  ln -s $gateway$2 $gateway
+}
+disable_gateway(){
+  echo Disable $1
+  for i in $data $vfd $arc $tmp; do
+    test -d $i$1 || mv $i $i$1
+    rm $gateway$2/run_time/`basename $i`
+    ln -s $i$1 $gateway$2/run_time/`basename $i`
+  done
+  test ! -h $gateway || rm $gateway
+}
+ 
+use 611
+gatestop
+use 614
+gatestop
+
+case $1 in
+do)
+  disable_gateway 611 6114
+
+  enable_gateway 614 6140
+
+  echo "Switch ports in conffile & pelsetup.ini"
+  update_ports(){
+    cp -p $1 $1.install
+    sed 's/463/63/g; s/460//g' $1 > $1.tmp && mv $1.tmp $1
+  }
+  update_ports $run_time614/etc/conffile
+  update_ports $run_time614/etc/pelsetup.ini
+  update_ports $run_time614/etc/csconfig.ini
+
+  echo Start the gateway 614
+  use 614
+  gatestart
+  ;;
+undo)
+  disable_gateway 614 6140
+  enable_gateway 611 6114
+
+  mv $run_time614/etc/conffile.install $run_time614/etc/conffile
+  mv $run_time614/etc/pelsetup.ini.install $run_time614/etc/pelsetup.ini
+  echo Start the gateway 611
+  use 611
+  gatestart
+  use 614
+  gatestart
+  ;;
+esac
+

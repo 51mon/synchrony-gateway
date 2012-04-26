@@ -1,0 +1,64 @@
+#!/bin/bash
+
+dir=/var/tmp
+
+log(){ echo "`date '+%Y-%m-%d %H:%M:%S'` [$$] $@" >&2; } # | tee -a $dir/`basename $0`_$$.log >&2; }
+info(){ log info "$@"; }
+error(){ log error "$@"; exit 1; }
+
+. ~/.profile
+
+vfd_list(){
+ #echo List $1 >&2
+ vfddsp list_dir -dp $1 | grep -v Filename | while read X file type misc; do
+  test $1 == / || file="$1/$file"
+  test $type = VD || test $type = MD || continue
+  echo Do $file >&2
+  cmd="vfdadm create_dir `vfddsp display_dir -dp $file | sed 's/^vd_/-/; s/=/ /g' | awk 'BEGIN{a=""}{a=a " " $0}END{print a}'`"
+  echo $cmd
+  vfd_list $file
+ done
+}
+
+export(){
+ test $# -eq 0 && set pel sec vfd
+ for type in $@; do
+  case $type in
+   pel|sec)
+    for obj in `${type}base \? |grep export |sed 's/.*export_//'`; do
+     file=$dir/export_${type}base_${obj}.dat
+     info "Export of $type objects $obj in $file"
+     ${type}base export_$obj -f $file || info "${type}base export_$obj -f $file KO"
+    done;;
+   vfd) info Export of vfd objects in $dir/export_vfdbase.dat
+    vfd_list / >> $dir/export_vfd.dat;;
+    #vfdbase export -f $dir/export_vfdbase.dat
+    #cat $dir/export_vfdbase.dat.log >&2
+    #rm $dir/export_vfdbase.dat.log;;
+   *) error $type not managed;;
+  esac
+ done
+}
+
+import(){
+  test $# -eq 0 && set pel sec vfd
+  for obj in $@; do
+   options="-error_free"
+   if test $obj = vfd; then
+     bash /var/tmp/export_vfd.dat || exit 1
+   else
+     for f in /var/tmp/export_$obj.dat; do
+       ${obj}base import -if $f $options
+     done
+   fi
+  done
+}
+
+if test $1 != export -a $1 != import; then
+  echo "Usage: Export / import objects into /var/tmp.
+	`basename $0` export [pel] [sec] [vfd]
+	`basename $0` import [pel] [sec] [vfd]"
+  exit
+fi
+
+"$@"

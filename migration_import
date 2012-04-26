@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#set -e
+
+case `uname -n` in
+xfbdev*)
+  . /xfbdev1/produits/gateway6140/run_time/etc/profile
+  dmz_path=/appli/xfb/D/data
+  int_path=/xfbdev1/data/xfb
+  site=XFBDEV1
+  ;;
+xfbdev*|xfbprep*) 
+  . /xfbprep1/produits/gateway6140/run_time/etc/profile
+  dmz_path=/appli/xfb/T/data
+  int_path=/xfbprep1/data/xfb
+  site=XFBPREP1
+  ;;
+xfbprod*)
+  . /xfbprod/produits/gateway6140/run_time/etc/profile
+  dmz_path=/appli/xfb/P/data
+  int_path=/xfbprod/data/xfb
+  site=XFBPROD1
+  ;;
+esac
+
+test `gatestatus |grep -c running.` -eq 1 || { echo Error gateway must be started; exit 1; }
+
+test $# -eq 2 || { echo Args: export_dmz_tar export_int_tar; exit 2; }
+
+export_dmz=$1
+export_int=$2
+
+test -d dmz && rm -r dmz
+mkdir dmz
+test -d int && rm -r int
+mkdir int
+test -f $export_dmz ||exit 3
+test -f $export_int ||exit 3
+
+(cd dmz; tar xvf ../$export_dmz; )
+(cd int; tar xvf ../$export_int; )
+
+echo Remove default cgates
+peldsp select_cgate | while read cgate; do peladm delete_cgate -n $cgate; done
+
+# pelbase import does not manage RA
+
+cmd(){ 
+  echo $1base import -if $3/export_$1base_$2.dat $4 -error_free
+  $1base import -if $3/export_$1base_$2.dat $4 -error_free
+}
+
+add_SR(){
+  grep s_alias= $1 | cut -d"'" -f2 |while read site; do
+    peladm update_site -a $site -xsr_arl $2 || echo ERROR on site $site
+  done
+}
+
+cmd pel site dmz -si
+echo Set the INT remote agent
+add_SR dmz/export_pelbase_site.dat RA001
+
+cmd pel site int -si
+echo Set the EXT remote agent
+add_SR int/export_pelbase_site.dat RA002
+
+cmd pel appli int -ap
+cat dmz/export_pelbase_model.dat | sed "s/\(XFBPR[OE][DP]1\)/\1IP/; s/XFBGWDMZ/$site/" > dmz/export_pelbase_model.dat.new && mv dmz/export_pelbase_model.dat.new dmz/export_pelbase_model.dat
+cmd pel model dmz -ml
+cmd pel purge_model int -pm
+cmd pel profile int -pr
+cmd pel user int -user
+cmd pel cgategroup dmz -cgg
+cmd pel cgate dmz -cg
+cmd pel cgate int -cg
+cmd pel decisionrule int -rd
+cmd pel decisionrule dmz -rd
+
+peladm delete_ruletable -n DEFAULT -type XFER_CHANGE_STATE
+cmd pel ruletable int -rt
+peldsp select_decisionrule -type XFER_CHANGE_STATE |while read dr t; do
+  peladm update_ruletable -n DEFAULT -a $dr -type $t
+done
+
+cmd pel proxy int -px
+cmd pel proxy dmz -px
+
+cmd sec netprof dmz -np
+cmd sec sprof dmz -np
+cmd sec sprof int -sp
+cmd sec sprof dmz -sp
+cmd sec sshprof int -shp
+cmd sec sshprof dmz -shp
+cmd sec key int -ky
+cmd sec key dmz -ky
+cmd sec cert int -ctf
+cmd sec cert dmz -ctf
+
+path_re="s|/appli/xfb/[DTP]/data/xfb|$int_path|; s|/appli/xfb/[DTP]/data|$int_path|; s|/xfb[a-z1]*/data/xfb|$int_path|;"
+
+sed "$path_re" dmz/export_vfd.dat > vfdbase.$$ && mv vfdbase.$$ dmz/export_vfdbase_dmz.dat
+
+#echo "Remove all files in VFD to allow the import"
+#vfddsp list_dir -dp / |grep -v Filename | while read X dp misc; do 
+#  vfdadm delete_dir -dp $dp
+#done
+
+for import in dmz/export_vfd.dat int/export_vfd.dat; do
+ nawk '{if ($0 ~ /MountName/ && $3 ~ /^\//) print $3}' $import | sed "$path_re" | while read path; do
+  if test -d $path; then
+    echo Create folder $path
+    mkdir -p $path
+  fi
+ done
+ echo Create vfd with $import
+ bash $import
+done
+
+#gatestop
+#rm  $p_vfdbase/Vfd*
+#echo vfdbase import -if export_vfdbase_dmz.dat
+#vfdbase import -if export_vfdbase_dmz.dat
+#echo vfdbase import -if export_vfdbase_int.dat
+#vfdbase import -if export_vfdbase_int.dat
+#gatestart
