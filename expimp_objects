@@ -40,15 +40,23 @@ export(){
  done
 }
 
+# To do: add the correct option for each object pel & sec
 import(){
   test $# -eq 0 && set pel sec vfd
   for obj in $@; do
-   options="-error_free"
    if test $obj = vfd; then
      bash export_vfd.dat || exit 1
    else
      for f in export_$obj.dat; do
-       ${obj}base import -if $f $options
+       if test $obj = pel; then
+         for option in -si -ml ...; do
+           ${obj}base import -if $f $option -error_free
+         done
+       elif test $obj = sec; then
+         for option in ...; do
+           ${obj}base import -if $f $option -error_free
+         done
+       fi
      done
    fi
   done
