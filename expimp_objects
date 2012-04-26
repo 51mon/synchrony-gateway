@@ -45,9 +45,9 @@ import(){
   for obj in $@; do
    options="-error_free"
    if test $obj = vfd; then
-     bash /var/tmp/export_vfd.dat || exit 1
+     bash export_vfd.dat || exit 1
    else
-     for f in /var/tmp/export_$obj.dat; do
+     for f in export_$obj.dat; do
        ${obj}base import -if $f $options
      done
    fi
