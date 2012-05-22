@@ -32,9 +32,21 @@ $ ./install_auto
 
 ## migration_exports: Export all objects into a tar file
 
+``` bash
+$ ./migration_exports
+```
+
 ## migration_import: Import all object from a tar file
 
+``` bash
+$ ./migration_import
+```
+
 ## switch_gateway: Switch from the old gateway to the new one
+
+``` bash
+$ ./switch_gateway
+```
 
 Stop the gateways
 Move the folders as required
