@@ -1,6 +1,6 @@
 Collection of bash scripts created while migrating 
 [Axway](http://www.axway.fr/) [Gateway](http://www.axway.fr/produits-solutions/mft/gateways/gateway) 6.11 
-to Gateway 6.14 + [SecureRelay](http://www.axway.fr/produits-solutions/mft/gateways/dmz-security)
+to Gateway 6.13 (or 6.14) + [SecureRelay](http://www.axway.fr/produits-solutions/mft/gateways/dmz-security)
 
 ## expimp_objects: Export / import of Gateway objects
 
