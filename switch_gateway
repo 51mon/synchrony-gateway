@@ -3,6 +3,8 @@ set -e
 set -x
 
 dir="$1"
+test -r $dir || exit 1
+shift
 
 gateway=$dir/produits/gateway
 data=$dir/source/data
