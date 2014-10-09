@@ -2,11 +2,7 @@
 set -e
 set -x
 
-case `uname -n` in
-xfbdev*) dir=/xfbdev1;;
-xfbprep*) dir=/xfbprep1;;
-xfbprod*) dir=/xfbprod;;
-esac
+dir="$1"
 
 gateway=$dir/produits/gateway
 data=$dir/source/data
